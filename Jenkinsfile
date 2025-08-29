@@ -1,30 +1,30 @@
 pipeline {
-  agent any
-  triggers { pollSCM('H/2 * * * *') } // tạm thời: 2 phút check 1 lần; sau chuyển sang webhook
-  stages {
-    stage('Checkout') {
-      steps { checkout scm } // kéo code từ repo đã khai báo
+    agent any
+
+    stages {
+        stage('Build Docker image') {
+            steps {
+                bat 'docker build -t hello-jenkins .'
+            }
+        }
+
+        stage('Test Docker') {
+            steps {
+                bat 'docker ps -a'
+            }
+        }
+
+        stage('Deploy (Run Container)') {
+            steps {
+                // Stop container cũ nếu có (tránh lỗi "port already allocated")
+                bat '''
+                docker stop hello-jenkins-container || echo "No container to stop"
+                docker rm hello-jenkins-container || echo "No container to remove"
+                '''
+
+                // Chạy container mới
+                bat 'docker run -d --name hello-jenkins-container -p 8081:8080 hello-jenkins'
+            }
+        }
     }
-    stage('Build image') {
-      steps {
-        sh 'docker build -t hello-app:latest .'
-      }
-    }
-    stage('Test') {
-      steps {
-        sh 'docker run --rm hello-app:latest npm test'
-      }
-    }
-    stage('Deploy (run container)') {
-      steps {
-        sh '''
-          docker rm -f hello-app || true
-          docker run -d --name hello-app -p 8081:8081 hello-app:latest
-        '''
-      }
-    }
-  }
-  post {
-    always { echo "Done. Visit http://localhost:8081" }
-  }
 }
